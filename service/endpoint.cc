@@ -45,7 +45,6 @@ EndpointBase(const std::string & name)
       threadsActive_(0),
       numTransports(0), shutdown_(false), disallowTimers_(false)
 {
-    cerr << "Endpoint new: " << this << endl;
     Epoller::init(16384);
     auto wakeupData = make_shared<EpollData>(EpollData::EpollDataType::WAKEUP,
                                              wakeup.fd());
@@ -188,10 +187,14 @@ shutdown()
 
     //cerr << "idle" << endl;
 
-    while (numTransports > 0) {
+    while (numTransports != 0) {
+        //cerr << "shutdown " << this << ": numTransports = "
+        //     << numTransports << endl;
         int oldValue = numTransports;
         ML::futex_wait(numTransports, oldValue);
     }
+
+    //cerr << "numTransports = " << numTransports << endl;
 
     shutdown_ = true;
     ML::memory_barrier();
@@ -204,7 +207,7 @@ shutdown()
 
     {
         /* we can now close the timer fds as we now that they will no longer
-           being listened to */
+           be listened to */
         MutexGuard guard(dataSetLock);
         for (const auto & it: epollDataSet) {
             if (it->fdType == EpollData::EpollDataType::TIMER) {
